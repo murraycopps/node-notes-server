@@ -2,6 +2,7 @@ const express = require("express");
 const MongoClient = require('mongodb').MongoClient;
 const mongodb = require('mongodb');
 const bodyParser = require("body-parser");
+const cors = require('cors');
 
 
 // Load the DB_KEY from the .env file
@@ -21,9 +22,10 @@ MongoClient.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true }, (e
 
 const app = express();
 app.use(bodyParser.json());
+app.use(cors());
 
 // Create a route that queries the database
-app.get("/notes/notes", (req, res) => {
+app.get("/notes", (req, res) => {
     const db = client.db("notes");
     const collection = db.collection("notes");
 
@@ -32,7 +34,7 @@ app.get("/notes/notes", (req, res) => {
             console.error(err);
             res.send({ success: false, msg: "Error occurred while querying the database" });
         } else {
-            res.send({ success: true,  data: result });
+            res.send({ success: true, data: result });
         }
     });
 });
@@ -41,6 +43,12 @@ app.get("/notes/:id", (req, res) => {
     const db = client.db("notes");
     const collection = db.collection("notes");
 
+    // check if the ID is valid
+    if (!mongodb.ObjectId.isValid(req.params.id)) {
+        res.status(400).send({ success: false, msg: "Invalid ID" });
+        return;
+    }
+
     // Convert the ID parameter to an ObjectId
     const id = new mongodb.ObjectId(req.params.id);
 
@@ -48,9 +56,10 @@ app.get("/notes/:id", (req, res) => {
     collection.findOne({ _id: id }, (err, result) => {
         if (err) {
             console.error(err);
-            res.send({ success: false, msg: "Error occurred while querying the database" });
+            res.status(500).send({ success: false, msg: "Error occurred while querying the database" });
         } else {
-            res.send({ success: true, data: result });
+            if (!result) res.status(404).send({ success: false, msg: "Note not found" })
+            else res.send({ success: true, data: result });
         }
     });
 });
@@ -64,9 +73,9 @@ app.post("/notes", (req, res) => {
         collection.insertOne(note, (err, result) => {
             if (err) {
                 console.error(err);
-                res.send({ success: false, msg: "Error occurred while inserting the note" });
+                res.send({ success: false, msg: "Error occurred while inserting the note"});
             } else {
-                res.send({ success: true, msg: "Note inserted successfully" });
+                res.send({ success: true, msg: "Note inserted successfully", data: result });
             }
         });
     } else {
@@ -79,13 +88,19 @@ app.put("/notes/:id", (req, res) => {
     const collection = db.collection("notes");
     const note = req.body
 
-    if(note.name || note.text) {
+    // check if the ID is valid
+    if (!mongodb.ObjectId.isValid(req.params.id)) {
+        res.status(400).send({ success: false, msg: "Invalid ID" });
+        return;
+    }
+
+    if (note.name || note.text) {
         collection.updateOne({ _id: new mongodb.ObjectId(req.params.id) }, { $set: note }, (err, result) => {
             if (err) {
                 console.error(err);
                 res.send({ success: false, msg: "Error occurred while updating the note" });
             } else {
-                res.send({ success: true, msg: "Note updated successfully" });
+                res.send({ success: true, msg: "Note updated successfully", data: note });
             }
         });
     } else {
@@ -96,6 +111,12 @@ app.put("/notes/:id", (req, res) => {
 app.delete("/notes/:id", (req, res) => {
     const db = client.db("notes");
     const collection = db.collection("notes");
+
+    // check if the ID is valid
+    if (!mongodb.ObjectId.isValid(req.params.id)) {
+        res.status(400).send({ success: false, msg: "Invalid ID" });
+        return;
+    }
 
     collection.deleteOne({ _id: new mongodb.ObjectId(req.params.id) }, (err, result) => {
         if (err) {

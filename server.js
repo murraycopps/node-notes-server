@@ -6,10 +6,9 @@ const bodyParser = require("body-parser");
 
 // Load the DB_KEY from the .env file
 require('dotenv').config();
-const DB_KEY = process.env.DB_KEY;
+const uri = process.env.DB_URI;
 
 // Connect to the MongoDB database
-const uri = `mongodb+srv://murraycopps:murraycopps@runningdb.kcfyvxs.mongodb.net/test?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
 MongoClient.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true }, (err, client) => {
@@ -24,7 +23,7 @@ const app = express();
 app.use(bodyParser.json());
 
 // Create a route that queries the database
-app.get("/notes", (req, res) => {
+app.get("/notes/notes", (req, res) => {
     const db = client.db("notes");
     const collection = db.collection("notes");
 
@@ -75,6 +74,38 @@ app.post("/notes", (req, res) => {
     }
 });
 
+app.put("/notes/:id", (req, res) => {
+    const db = client.db("notes");
+    const collection = db.collection("notes");
+    const note = req.body
+
+    if(note.name || note.text) {
+        collection.updateOne({ _id: new mongodb.ObjectId(req.params.id) }, { $set: note }, (err, result) => {
+            if (err) {
+                console.error(err);
+                res.send({ success: false, msg: "Error occurred while updating the note" });
+            } else {
+                res.send({ success: true, msg: "Note updated successfully" });
+            }
+        });
+    } else {
+        res.status(400).send({ success: false, msg: "Invalid note" });
+    }
+});
+
+app.delete("/notes/:id", (req, res) => {
+    const db = client.db("notes");
+    const collection = db.collection("notes");
+
+    collection.deleteOne({ _id: new mongodb.ObjectId(req.params.id) }, (err, result) => {
+        if (err) {
+            console.error(err);
+            res.send({ success: false, msg: "Error occurred while deleting the note" });
+        } else {
+            res.send({ success: true, msg: "Note deleted successfully" });
+        }
+    });
+});
 
 
 
